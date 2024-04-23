@@ -1,15 +1,36 @@
 // src/user/user.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { UserRepository } from './repository/user.repository';
 import { User } from './user.model';
+import { PrismaService } from 'src/prisma/prisma.service';
+import * as bcrypt from 'bcryptjs'
 
 @Injectable()
 export class UserService {
-  constructor(private userRepository: UserRepository) {}
+  constructor(private userRepository: UserRepository, 
+  private  prisma:PrismaService
+) {}
 
-  async createUser(data: User): Promise<User> {
-    return this.userRepository.createUser(data);
+  async createUser(data: User){
+    try{
+        const emailExists = await this.prisma.user.findUnique({
+            where:{
+                email: data.email
+            }
+        })
+        if(emailExists) return { statusCode:0 , message:'Email already exits' }
+        const saltRounds = 10;
+
+        const hashPassword = await bcrypt.hash(data.password, saltRounds)
+
+
+    return this.userRepository.createUser({...data, password:hashPassword});
+    }
+    catch(err){
+        console.log('error Occured', err)
+        return err
+    }
   }
 
   async getUserById(id: number): Promise<User | null> {
